@@ -5,7 +5,6 @@ from api_gemini import analyze_text_with_gemini
 import os
 import re
 import glob
-import google.generativeai as genai
 from datetime import datetime
 def sanitize_filename(title):
     return re.sub(r'[^a-zA-Z0-9_-]', '_', title)[:50]  # limit length

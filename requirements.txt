@@ -2,4 +2,4 @@ flask
 requests
 beautifulsoup4
 selenium
-google-generativeai
+openai>=1.37.0
