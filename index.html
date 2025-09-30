@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Crawler with LLM Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8">Web Crawler with LLM Analysis</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex flex-col space-y-4">
+                <input 
+                    type="text" 
+                    id="urlInput" 
+                    placeholder="Enter URL to analyze (e.g., https://example.com)" 
+                    class="border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                <button 
+                    onclick="analyzeUrl()" 
+                    class="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+                    id="analyzeButton"
+                >
+                    <span id="buttonText">Analyze URL</span>
+                    <div id="loader" class="loader ml-2"></div>
+                </button>
+            </div>
+        </div>
+
+        <div id="results" class="space-y-6">
+            <!-- Results will be displayed here -->
+        </div>
+    </div>
+
+    <script>
+        async function analyzeUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+
+            const button = document.getElementById('analyzeButton');
+            const buttonText = document.getElementById('buttonText');
+            const loader = document.getElementById('loader');
+            const resultsDiv = document.getElementById('results');
+
+            // Show loading state
+            button.disabled = true;
+            buttonText.textContent = 'Analyzing...';
+            loader.style.display = 'block';
+            resultsDiv.innerHTML = '<div class="text-center py-4">Processing your request. This may take a few minutes...</div>';
+
+            try {
+                console.log('Sending request to analyze URL:', url);
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url })
+                });
+
+                const data = await response.json();
+                console.log('Response received:', data);
+                
+                if (response.ok) {
+                    displayResults(data);
+                } else {
+                    // Create a more detailed error message
+                    let errorMsg = data.error || 'Failed to analyze URL';
+                    if (data.details) {
+                        if (typeof data.details === 'string') {
+                            errorMsg += `: ${data.details}`;
+                        } else if (data.details.stderr) {
+                            errorMsg += `\n${data.details.stderr}`;
+                        }
+                    }
+                    throw new Error(errorMsg);
+                }
+            } catch (error) {
+                console.error('Error during analysis:', error);
+                let errorMessage = error.message;
+                
+                // Try to extract more details from the error
+                try {
+                    // If error is a JSON string, parse it
+                    const errorData = JSON.parse(error.message.replace('Error: ', ''));
+                    if (errorData.details) {
+                        errorMessage = `${errorData.error || 'Error'}: ${errorData.details}`;
+                    }
+                } catch (e) {
+                    // If not JSON, use as is
+                    if (error.message.includes('Failed to fetch')) {
+                        errorMessage = 'Failed to connect to the server. Please make sure the server is running.';
+                    }
+                }
+                
+                resultsDiv.innerHTML = `
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+                        <p class="font-semibold">Error: ${errorMessage}</p>
+                        <p class="text-sm mt-2">Please check the following and try again:</p>
+                        <ul class="list-disc pl-5 mt-1 text-sm">
+                            <li>Make sure the URL is correct and accessible</li>
+                            <li>Check your internet connection</li>
+                            <li>Verify the server is running</li>
+                        </ul>
+                        ${data && data.stdout ? 
+                            `<div class="mt-3 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-40">
+                                <p class="font-semibold">Output:</p>
+                                <pre class="whitespace-pre-wrap">${data.stdout}</pre>
+                            </div>` 
+                            : ''
+                        }
+                    </div>
+                `;
+            } finally {
+                // Reset button state
+                button.disabled = false;
+                buttonText.textContent = 'Analyze URL';
+                loader.style.display = 'none';
+                
+                // Scroll to results
+                resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            let html = '';
+            
+            // Display analysis results
+            if (data.analysis) {
+                html += `
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h2 class="text-xl font-semibold mb-4">Analysis Results</h2>
+                        <div class="prose max-w-none">
+                            ${data.analysis.replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Display content preview if available
+            if (data.content_preview) {
+                html += `
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h2 class="text-xl font-semibold mb-4">Content Preview</h2>
+                        <div class="prose max-w-none">
+                            ${data.content_preview.substring(0, 500)}...
+                        </div>
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
