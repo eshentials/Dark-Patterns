@@ -15,7 +15,7 @@ logging.basicConfig(
 # Configure the Gemini API key (Note: Hardcoding keys is not recommended for production use)
 try:
     logging.debug("Configuring Gemini API with provided API key.")
-    genai.configure(api_key="AIzaSyC2N3MtEuXakJj6hp7eutYFmgu5opFuGRY")
+    genai.configure(api_key="INSERT_YOUR_API")
 except Exception as e:
     logging.error(f"Failed to configure API key: {e}")
 
